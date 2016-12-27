@@ -1,0 +1,34 @@
+<link rel="import" href="../polymer/polymer.html">
+
+<!--
+`polymer-gcs`
+This element to show image from google cloud service
+
+@demo demo/index.html 
+-->
+
+<dom-module id="polymer-gcs">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+    </style>
+    <h2>Hello [[prop1]]</h2>
+  </template>
+
+  <script>
+    Polymer({
+
+      is: 'polymer-gcs',
+
+      properties: {
+        prop1: {
+          type: String,
+          value: 'polymer-gcs',
+        },
+      },
+
+    });
+  </script>
+</dom-module>
