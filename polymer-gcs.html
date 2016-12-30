@@ -14,7 +14,8 @@ This element to show image from google cloud service
         display: block;
       }
     </style>
-    <h2>Hello [[prop1]]</h2>
+    <h2>Polymer GCS</h2>
+    <img id="gcs_image" alt="no image"/>
   </template>
 
   <script>
@@ -23,12 +24,75 @@ This element to show image from google cloud service
       is: 'polymer-gcs',
 
       properties: {
-        prop1: {
-          type: String,
-          value: 'polymer-gcs',
-        },
+        clientId: String,
+        clientSecret: String,
+        refreshToken: String,
+        imageBucket: String,
+        imageObject: String
       },
 
+      // add observer when image-bucket or image-object change
+      // it will refresh the image with new object
+      observers: [
+        'loadImage(imageBucket, imageObject)'
+      ],
+
+      // function to replace '/' with '%2F'
+      urlEncoding: function(url){
+        // return _.replace(url, /\//g, '%2F');
+        return url.replace(/\//g, '%2F');
+      },
+
+      // function to get the image from GCS and load it to img tag
+      // to enable call google api without user oauth
+      // PLEASE READ THIS!
+      // http://stackoverflow.com/questions/19766912/how-do-i-authorise-an-app-web-or-installed-without-user-intervention-canonic/19766913#19766913
+      loadImage: function(){
+
+        // initialize xhr to get the token
+        var xhr_token = new XMLHttpRequest();
+        xhr_token.open('POST', 'https://www.googleapis.com/oauth2/v4/token');
+        xhr_token.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+
+        // initialize xhr to call gcs API
+        var xhr_gcs = new XMLHttpRequest();
+        xhr_gcs.open('GET', 'https://www.googleapis.com/storage/v1/b/' + this.imageBucket + '/o/' + this.urlEncoding(this.imageObject) + '?alt=media');
+        xhr_gcs.responseType = "arraybuffer";
+
+        // initialize data for request to google API
+        // which needed to authorize our call
+        // TODO: find way how to hide this client_id and client_secret.
+        var data = "client_id=" + this.clientId + "&client_secret=" + this.clientSecret + "&refresh_token=" + this.refreshToken + "&grant_type=refresh_token"
+
+        xhr_token.addEventListener('load', function(event) {
+          var access_token = JSON.parse(xhr_token.response).access_token;
+
+          xhr_gcs.setRequestHeader('Authorization', 'Bearer ' + access_token); // set Authorization with accesstoken value 
+          xhr_gcs.onreadystatechange = function() {//Call a function when the state changes.
+            if(xhr_gcs.readyState == XMLHttpRequest.DONE && xhr_gcs.status == 200) {
+
+              var arrayBufferView = new Uint8Array( this.response );
+              var blob = new Blob( [ arrayBufferView ], { type: "image/jpeg" } ); // the type is jpeg, but jpg and png is work too :D
+              var urlCreator = window.URL || window.webkitURL; // webkitURL is depecrated, but we still used it. incase browser on user device still use webkitURL.
+              var imageUrl = urlCreator.createObjectURL( blob );
+              var img = document.querySelector( "#gcs_image" ); // select the image tag
+              img.src = imageUrl; // set image tag src with encoded base64 from RAW data.
+            }
+          }
+
+          xhr_gcs.send(); // call gcs API
+        })
+
+        xhr_token.addEventListener('error', function(event) {
+          console.log('Oops! Something went wrong.');
+        });
+
+        console.log(this.clientId);
+        console.log(data);
+
+        // call to refresh the access token
+        xhr_token.send(data);
+      }
     });
   </script>
 </dom-module>
